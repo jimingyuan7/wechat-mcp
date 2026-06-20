@@ -66,9 +66,59 @@ terminal is friendlier for scanning the QR.
 
 ### Claude Code
 
+**Prerequisites:** the project is built (`npm install` already ran the `prepare`
+build, so `dist/mcp/server.js` exists) and you have logged in once
+(`npm run login`).
+
+**1. Add the server.** Run this from anywhere — use the absolute path to the
+built entry point:
+
 ```bash
 claude mcp add wechat -- node /absolute/path/to/wechat-mcp/dist/mcp/server.js
 ```
+
+Tip: if you're inside the project dir, `$(pwd)` fills the path in for you:
+
+```bash
+claude mcp add wechat -- node "$(pwd)/dist/mcp/server.js"
+```
+
+By default the server is added at **local** scope (only this project on this
+machine). To make it available across all your projects, use user scope:
+
+```bash
+claude mcp add -s user wechat -- node /absolute/path/to/wechat-mcp/dist/mcp/server.js
+```
+
+To override a config env var (e.g. a custom state dir), pass `-e`:
+
+```bash
+claude mcp add wechat \
+  -e WECHAT_MCP_STATE_DIR=/data/wechat \
+  -- node /absolute/path/to/wechat-mcp/dist/mcp/server.js
+```
+
+**2. Verify it's connected:**
+
+```bash
+claude mcp list          # should show: wechat ✓ connected
+claude mcp get wechat    # shows the full command + health
+```
+
+**3. Use it.** Start `claude`, and the 7 `wechat_*` tools are available. Just
+ask in natural language, e.g.:
+
+> *"Use wechat_listen to wait for a WeChat message, then reply with a friendly greeting."*
+
+**Remove** when you no longer need it:
+
+```bash
+claude mcp remove wechat
+```
+
+> Note: first-time WeChat login (`npm run login`) needs a real terminal to scan
+> the QR code, so do that **before** relying on the tools inside Claude Code.
+> Credentials persist under `~/.wechat-mcp/`, so you only log in once.
 
 ### Claude Desktop (`claude_desktop_config.json`)
 
