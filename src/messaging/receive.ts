@@ -153,6 +153,61 @@ export async function receiveOnce(params: {
   return { accountId: account.accountId, messages, sessionExpired: false };
 }
 
+export interface ListenResult extends ReceiveResult {
+  /** Number of getUpdates cycles performed before returning. */
+  pollCycles: number;
+  /** True when the listen window elapsed without any message. */
+  timedOut: boolean;
+}
+
+/**
+ * Continuously poll until at least one message arrives, an API error occurs,
+ * or the overall deadline is reached.
+ *
+ * `receiveOnce` does a single getUpdates cycle, and the backend frequently
+ * returns an empty response well before the requested long-poll timeout — so a
+ * single call can return immediately with nothing. This loop re-polls back to
+ * back, which is the correct way to "listen" for a message over a window.
+ */
+export async function receiveUntil(params: {
+  account: ResolvedWeixinAccount;
+  /** Total time to keep listening, ms (default 120000 = 2 min). */
+  windowMs?: number;
+  /** Per-cycle long-poll timeout, ms (default 30000). */
+  cycleTimeoutMs?: number;
+  downloadMedia?: boolean;
+  abortSignal?: AbortSignal;
+}): Promise<ListenResult> {
+  const { account } = params;
+  const windowMs = params.windowMs ?? 120_000;
+  const cycleTimeoutMs = params.cycleTimeoutMs ?? 30_000;
+  const deadline = Date.now() + windowMs;
+
+  let pollCycles = 0;
+  let last: ReceiveResult = { accountId: account.accountId, messages: [], sessionExpired: false };
+
+  while (Date.now() < deadline && !params.abortSignal?.aborted) {
+    // Clamp the final cycle so we don't overshoot the window by much.
+    const remaining = deadline - Date.now();
+    const thisCycle = Math.max(1_000, Math.min(cycleTimeoutMs, remaining));
+
+    last = await receiveOnce({
+      account,
+      timeoutMs: thisCycle,
+      downloadMedia: params.downloadMedia,
+      abortSignal: params.abortSignal,
+    });
+    pollCycles += 1;
+
+    // Stop early on messages or a hard error (e.g. session expired).
+    if (last.messages.length > 0 || last.error || last.sessionExpired) {
+      return { ...last, pollCycles, timedOut: false };
+    }
+  }
+
+  return { ...last, pollCycles, timedOut: true };
+}
+
 /**
  * Download + decrypt the first media item on a message (image > video > file >
  * voice priority is enforced downstream by weixinMessageToMsgContext).

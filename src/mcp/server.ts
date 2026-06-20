@@ -13,7 +13,8 @@ import {
 import { clearContextTokensForAccount } from "../messaging/inbound.js";
 import { runQrLogin } from "../auth/login.js";
 import { sendWeChatMessage } from "../messaging/outbound.js";
-import { receiveOnce } from "../messaging/receive.js";
+import { receiveOnce, receiveUntil } from "../messaging/receive.js";
+import { sendWeChatTyping } from "../messaging/typing.js";
 import { logger } from "../util/logger.js";
 
 const SERVER_NAME = "wechat-mcp";
@@ -122,7 +123,7 @@ function buildServer(): McpServer {
     {
       title: "Send a WeChat message",
       description:
-        "Send a WeChat message to a user. Provide `to` (the recipient WeChat id, e.g. 'xxxx@im.wechat'), and `text` and/or `media`. `media` may be a local file path (absolute recommended) or a remote http(s) URL — images, videos, and other files are auto-detected by extension. If multiple accounts are logged in, pass `accountId`. The per-recipient context token (cached from inbound messages) is attached automatically when available.",
+        "Send a WeChat message to a user. Provide `to` (the recipient WeChat id, e.g. 'xxxx@im.wechat'), and `text` and/or `media`. `media` may be a local file path (absolute recommended) or a remote http(s) URL — images, videos, and other files are auto-detected by extension. If multiple accounts are logged in, pass `accountId`. The per-recipient context token (cached from inbound messages) is attached automatically when available. Outbound text is markdown-filtered by default (WeChat-unsupported syntax such as H5/H6 headings, CJK italics, and inline images is stripped; code blocks, tables, and bold are kept).",
       inputSchema: {
         to: z.string().min(1).describe("Recipient WeChat id, e.g. 'xxxx@im.wechat'."),
         text: z.string().optional().describe("Message text. Optional when sending media only."),
@@ -134,14 +135,24 @@ function buildServer(): McpServer {
           .string()
           .optional()
           .describe("Sending account id; required only when multiple accounts are logged in."),
+        filterMarkdown: z
+          .boolean()
+          .optional()
+          .describe("Strip WeChat-unsupported markdown from text (default true). Set false to send raw text."),
       },
     },
-    async ({ to, text, media, accountId }) => {
+    async ({ to, text, media, accountId, filterMarkdown }) => {
       if (!text && !media) {
         return errorResult("wechat_send requires at least one of `text` or `media`.");
       }
       try {
-        const result = await sendWeChatMessage({ to, text, media, accountId });
+        const result = await sendWeChatMessage({
+          to,
+          text,
+          media,
+          accountId,
+          filterMarkdownText: filterMarkdown,
+        });
         return jsonResult(result);
       } catch (err) {
         return errorResult(`wechat_send failed: ${String(err)}`);
@@ -187,6 +198,90 @@ function buildServer(): McpServer {
         return jsonResult(result);
       } catch (err) {
         return errorResult(`wechat_receive failed: ${String(err)}`);
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // wechat_listen
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "wechat_listen",
+    {
+      title: "Listen for WeChat messages",
+      description:
+        "Continuously poll until at least one inbound message arrives, an error occurs, or the listen window elapses. Unlike wechat_receive (a single poll cycle that often returns empty immediately), this re-polls back-to-back across the whole window — the correct way to wait for a message. Returns as soon as a message is received, with `pollCycles` and `timedOut` for diagnostics. Media is downloaded + decrypted to local temp files by default. If multiple accounts are logged in, pass `accountId`.",
+      inputSchema: {
+        accountId: z
+          .string()
+          .optional()
+          .describe("Account id to listen on; required only when multiple accounts are logged in."),
+        windowMs: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Total time to keep listening, in ms (default 120000 = 2 min)."),
+        cycleTimeoutMs: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Per-cycle long-poll timeout, in ms (default 30000)."),
+        downloadMedia: z
+          .boolean()
+          .optional()
+          .describe("Download + decrypt inbound media to temp files (default true)."),
+      },
+    },
+    async ({ accountId, windowMs, cycleTimeoutMs, downloadMedia }) => {
+      try {
+        const account = resolveWeixinAccount(accountId);
+        if (!account.configured) {
+          return errorResult(
+            `wechat_listen: account ${account.accountId} not configured — run wechat_login first`,
+          );
+        }
+        const result = await receiveUntil({
+          account,
+          windowMs,
+          cycleTimeoutMs,
+          downloadMedia,
+        });
+        return jsonResult(result);
+      } catch (err) {
+        return errorResult(`wechat_listen failed: ${String(err)}`);
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // wechat_typing
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "wechat_typing",
+    {
+      title: "Send a WeChat typing indicator",
+      description:
+        "Show (or cancel) the '正在输入…' typing indicator to a WeChat user. Useful before a slow reply so the user sees the bot is working. The required typing ticket is resolved automatically. If multiple accounts are logged in, pass `accountId`.",
+      inputSchema: {
+        to: z.string().min(1).describe("Recipient WeChat id, e.g. 'xxxx@im.wechat'."),
+        status: z
+          .enum(["typing", "cancel"])
+          .optional()
+          .describe("'typing' to show the indicator (default), 'cancel' to clear it."),
+        accountId: z
+          .string()
+          .optional()
+          .describe("Sending account id; required only when multiple accounts are logged in."),
+      },
+    },
+    async ({ to, status, accountId }) => {
+      try {
+        const result = await sendWeChatTyping({ to, status, accountId });
+        return jsonResult(result);
+      } catch (err) {
+        return errorResult(`wechat_typing failed: ${String(err)}`);
       }
     },
   );

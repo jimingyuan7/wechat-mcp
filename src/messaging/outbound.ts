@@ -5,11 +5,22 @@ import { assertSessionActive } from "../api/session-guard.js";
 import { getContextToken, restoreContextTokens } from "./inbound.js";
 import { sendMessageWeixin } from "./send.js";
 import { sendWeixinMediaFile } from "./send-media.js";
+import { StreamingMarkdownFilter } from "./markdown-filter.js";
 import { downloadRemoteImageToTemp } from "../cdn/upload.js";
 import { resolveTmpDir } from "../storage/state-dir.js";
 import { logger } from "../util/logger.js";
 
 const MEDIA_OUTBOUND_TEMP_DIR = path.join(resolveTmpDir(), "media", "outbound");
+
+/**
+ * Strip markdown that WeChat cannot render (H5/H6 headings, CJK italics,
+ * inline images, etc.) while preserving code blocks, tables, and bold.
+ * Mirrors the original openclaw-weixin outbound filtering.
+ */
+function filterMarkdown(text: string): string {
+  const f = new StreamingMarkdownFilter();
+  return f.feed(text) + f.flush();
+}
 
 /** True when mediaUrl refers to a local filesystem path (no URL scheme). */
 function isLocalFilePath(mediaUrl: string): boolean {
@@ -33,6 +44,8 @@ export interface SendResult {
   messageId: string;
   /** True when a context token was found and attached. */
   hadContextToken: boolean;
+  /** True when outbound markdown filtering changed the text. */
+  markdownFiltered: boolean;
 }
 
 /**
@@ -43,12 +56,16 @@ export interface SendResult {
  * - The per-recipient context token (cached from inbound messages) is attached
  *   automatically when available; sending without it may be rejected for users
  *   who have not recently messaged the bot.
+ * - Outbound text is markdown-filtered by default (WeChat-unsupported syntax is
+ *   stripped); pass `filterMarkdownText: false` to send the raw text.
  */
 export async function sendWeChatMessage(params: {
   to: string;
   text?: string;
   media?: string;
   accountId?: string | null;
+  /** Strip WeChat-unsupported markdown from text (default true). */
+  filterMarkdownText?: boolean;
 }): Promise<SendResult> {
   const account = resolveWeixinAccount(params.accountId);
   const aLog = logger.withAccount(account.accountId);
@@ -67,7 +84,10 @@ export async function sendWeChatMessage(params: {
     aLog.warn(`sendWeChatMessage: no context token for to=${params.to}, sending without context`);
   }
 
-  const text = params.text ?? "";
+  const rawText = params.text ?? "";
+  const text =
+    params.filterMarkdownText === false ? rawText : filterMarkdown(rawText);
+  const markdownFiltered = text !== rawText;
   const media = params.media?.trim();
 
   if (media && (isLocalFilePath(media) || isRemoteUrl(media))) {
@@ -90,6 +110,7 @@ export async function sendWeChatMessage(params: {
       to: params.to,
       messageId: result.messageId,
       hadContextToken: Boolean(contextToken),
+      markdownFiltered,
     };
   }
 
@@ -103,5 +124,6 @@ export async function sendWeChatMessage(params: {
     to: params.to,
     messageId: result.messageId,
     hadContextToken: Boolean(contextToken),
+    markdownFiltered,
   };
 }

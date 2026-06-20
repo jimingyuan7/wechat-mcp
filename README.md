@@ -18,8 +18,10 @@ removed and replaced with a thin MCP tool layer.
 | `wechat_login` | QR-code login. Prints a QR to the terminal (STDERR); scan with WeChat mobile and confirm. Persists the bot token. |
 | `wechat_list_accounts` | List logged-in WeChat bot accounts. |
 | `wechat_logout` | Remove an account's stored credentials, sync cursor, and context tokens. |
-| `wechat_send` | Send text and/or a media attachment (image / video / file) to a user. Accepts a local path or a remote http(s) URL. |
+| `wechat_send` | Send text and/or a media attachment (image / video / file) to a user. Accepts a local path or a remote http(s) URL. Text is markdown-filtered by default (WeChat-unsupported syntax stripped); pass `filterMarkdown: false` for raw text. |
 | `wechat_receive` | Poll for new inbound messages (one long-poll cycle). Tracks a per-account sync cursor so repeated calls don't return duplicates. Inbound media is downloaded + decrypted to local temp files. |
+| `wechat_listen` | Continuously poll until a message arrives, an error occurs, or the window elapses (default 2 min). Re-polls back-to-back — the reliable way to wait for a message, since a single `wechat_receive` cycle often returns empty early. |
+| `wechat_typing` | Show (or cancel) the "正在输入…" typing indicator for a user. The typing ticket is resolved automatically. |
 
 ## Requirements
 
@@ -120,7 +122,8 @@ src/
   cdn/         AES-128-ECB encrypt/decrypt + CDN upload/download
   media/       MIME mapping, media download/decrypt, optional SILK→WAV transcode
   messaging/   send (text/image/video/file), inbound normalization + context tokens,
-               receive (single poll cycle), outbound (high-level send)
+               receive (single cycle + receiveUntil listen loop), outbound (high-level
+               send w/ markdown filter), typing (indicator), markdown-filter
   storage/     state-dir resolution + sync-buf (getUpdates cursor) persistence
   util/        logger (STDERR-only), redaction, id/account-id helpers
   mcp/         MCP stdio server exposing the 5 tools
