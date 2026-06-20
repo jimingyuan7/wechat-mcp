@@ -34,7 +34,7 @@ Clone and install. The `prepare` hook compiles TypeScript to `dist/`
 automatically on `npm install`, so there is no separate build step.
 
 ```bash
-git clone <REPO_URL> wechat-mcp
+git clone https://github.com/jimingyuan7/wechat-mcp.git wechat-mcp
 cd wechat-mcp
 npm install
 ```
