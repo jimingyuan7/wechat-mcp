@@ -1,0 +1,38 @@
+{
+  "name": "wechat-mcp",
+  "version": "0.1.0",
+  "description": "WeChat (Weixin) messaging MCP server — send/receive messages over the iLink bot protocol. Ported from Tencent/openclaw-weixin.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "wechat-mcp": "dist/mcp/server.js"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "tsconfig.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/mcp/server.js",
+    "login": "node dist/mcp/server.js login",
+    "dev": "tsc && node dist/mcp/server.js",
+    "prepare": "tsc"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "qrcode-terminal": "0.12.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/qrcode-terminal": "^0.12.2",
+    "typescript": "^5.8.0"
+  }
+}
