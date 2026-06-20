@@ -21,7 +21,7 @@ removed and replaced with a thin MCP tool layer.
 | `wechat_send` | Send text and/or a media attachment (image / video / file) to a user. Accepts a local path or a remote http(s) URL. Text is markdown-filtered by default (WeChat-unsupported syntax stripped); pass `filterMarkdown: false` for raw text. |
 | `wechat_receive` | Poll for new inbound messages (one long-poll cycle). Tracks a per-account sync cursor so repeated calls don't return duplicates. Inbound media is downloaded + decrypted to local temp files. |
 | `wechat_listen` | Continuously poll until a message arrives, an error occurs, or the window elapses (default 2 min). Re-polls back-to-back — the reliable way to wait for a message, since a single `wechat_receive` cycle often returns empty early. |
-| `wechat_typing` | Show (or cancel) the "正在输入…" typing indicator for a user. The typing ticket is resolved automatically. |
+| `wechat_typing` | Show (or cancel) the "typing…" indicator for a user. The typing ticket is resolved automatically. |
 
 ## Requirements
 
@@ -187,7 +187,7 @@ the `context_token` that outbound sends require.
 ```jsonc
 // → result (returns as soon as a message arrives)
 { "messages": [
-  { "From": "o9cq...@im.wechat", "Body": "你好",
+  { "From": "o9cq...@im.wechat", "Body": "Hello",
     "MediaPath": null, "context_token": "AARz..." }
 ], "pollCycles": 3, "timedOut": false }
 ```
@@ -199,7 +199,7 @@ so the next send will actually deliver.
 
 ```json
 { "name": "wechat_send", "arguments": {
-  "to": "o9cq...@im.wechat", "text": "你好！收到了 👍" } }
+  "to": "o9cq...@im.wechat", "text": "Hi! Got it 👍" } }
 ```
 
 ```jsonc
@@ -225,7 +225,7 @@ Local path (absolute recommended) or a remote URL — type is auto-detected:
 
 ```json
 { "name": "wechat_send", "arguments": {
-  "to": "o9cq...@im.wechat", "text": "这是图", "media": "/tmp/photo.png" } }
+  "to": "o9cq...@im.wechat", "text": "Here's the photo", "media": "/tmp/photo.png" } }
 ```
 
 ```json
