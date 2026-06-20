@@ -32,7 +32,7 @@ export type WeixinApiOptions = {
 // pinned as constants; the channel version is informational only.
 // ---------------------------------------------------------------------------
 
-const CHANNEL_VERSION = process.env.WECHAT_MCP_CHANNEL_VERSION ?? "wechat-mcp/0.1.0";
+const CHANNEL_VERSION = process.env.WECHAT_MCP_CHANNEL_VERSION ?? "wechat-mcp/0.2.0";
 
 /** iLink-App-Id header value (was package.json top-level `ilink_appid`). */
 const ILINK_APP_ID = "bot";

@@ -18,7 +18,7 @@ import { sendWeChatTyping } from "../messaging/typing.js";
 import { logger } from "../util/logger.js";
 
 const SERVER_NAME = "wechat-mcp";
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = "0.2.0";
 
 /** Wrap a result object as an MCP text content block of pretty JSON. */
 function jsonResult(obj: unknown) {

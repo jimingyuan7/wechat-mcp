@@ -1,6 +1,6 @@
 {
   "name": "wechat-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "WeChat (Weixin) messaging MCP server — send/receive messages over the iLink bot protocol. Ported from Tencent/openclaw-weixin.",
   "license": "MIT",
   "type": "module",
